@@ -257,25 +257,25 @@ where
 #[non_exhaustive]
 pub struct EthEvmFactory;
 
-impl EvmFactory for EthEvmFactory {
-    type Evm<DB: Database, I: Inspector<EthEvmContext<DB>>> = EthEvm<DB, I, Self::Precompiles>;
-    type Context<DB: Database> = Context<BlockEnv, TxEnv, CfgEnv, DB>;
+impl<DB: Database> EvmFactory<DB> for EthEvmFactory {
+    type Evm<I: Inspector<EthEvmContext<DB>>> = EthEvm<DB, I, Self::Precompiles>;
+    type Context = Context<BlockEnv, TxEnv, CfgEnv, DB>;
     type Tx = TxEnv;
     type Error<DBError: core::error::Error + Send + Sync + 'static> = EVMError<DBError>;
     type HaltReason = HaltReason;
     type Spec = SpecId;
     type Precompiles = PrecompilesMap;
 
-    fn create_evm<DB: Database>(&self, db: DB, input: EvmEnv) -> Self::Evm<DB, NoOpInspector> {
+    fn create_evm(&self, db: DB, input: EvmEnv) -> Self::Evm<NoOpInspector> {
         EthEvmBuilder::new(db, input).build()
     }
 
-    fn create_evm_with_inspector<DB: Database, I: Inspector<Self::Context<DB>>>(
+    fn create_evm_with_inspector<I: Inspector<Self::Context>>(
         &self,
         db: DB,
         input: EvmEnv,
         inspector: I,
-    ) -> Self::Evm<DB, I> {
+    ) -> Self::Evm<I> {
         EthEvmBuilder::new(db, input).activate_inspector(inspector).build()
     }
 }

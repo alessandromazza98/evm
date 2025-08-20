@@ -276,11 +276,12 @@ impl<R, Spec, EvmFactory> EthBlockExecutorFactory<R, Spec, EvmFactory> {
     }
 }
 
-impl<R, Spec, EvmF> BlockExecutorFactory for EthBlockExecutorFactory<R, Spec, EvmF>
+impl<DB, R, Spec, EvmF> BlockExecutorFactory<DB> for EthBlockExecutorFactory<R, Spec, EvmF>
 where
     R: ReceiptBuilder<Transaction: Transaction + Encodable2718, Receipt: TxReceipt<Log = Log>>,
     Spec: EthExecutorSpec,
-    EvmF: EvmFactory<Tx: FromRecoveredTx<R::Transaction> + FromTxWithEncoded<R::Transaction>>,
+    EvmF: EvmFactory<DB, Tx: FromRecoveredTx<R::Transaction> + FromTxWithEncoded<R::Transaction>>,
+    DB: Database + 'static,
     Self: 'static,
 {
     type EvmFactory = EvmF;
@@ -292,14 +293,14 @@ where
         &self.evm_factory
     }
 
-    fn create_executor<'a, DB, I>(
+    fn create_executor<'a, I>(
         &'a self,
-        evm: EvmF::Evm<&'a mut State<DB>, I>,
+        evm: EvmF::Evm<I>,
         ctx: Self::ExecutionCtx<'a>,
     ) -> impl BlockExecutorFor<'a, Self, DB, I>
     where
         DB: Database + 'a,
-        I: Inspector<EvmF::Context<&'a mut State<DB>>> + 'a,
+        I: Inspector<EvmF::Context> + 'a,
     {
         EthBlockExecutor::new(evm, ctx, &self.spec, &self.receipt_builder)
     }

@@ -272,25 +272,25 @@ pub trait BlockExecutor {
 
 /// A helper trait encapsulating the constraints on [`BlockExecutor`] produced by the
 /// [`BlockExecutorFactory`] to avoid duplicating them in every implementation.
-pub trait BlockExecutorFor<'a, F: BlockExecutorFactory + ?Sized, DB, I = NoOpInspector>
+pub trait BlockExecutorFor<'a, F: BlockExecutorFactory<DB> + ?Sized, DB: 'static, I = NoOpInspector>
 where
     Self: BlockExecutor<
-        Evm = <F::EvmFactory as EvmFactory>::Evm<&'a mut State<DB>, I>,
+        Evm = <F::EvmFactory as EvmFactory<DB>>::Evm<I>,
         Transaction = F::Transaction,
         Receipt = F::Receipt,
     >,
     DB: Database + 'a,
-    I: Inspector<<F::EvmFactory as EvmFactory>::Context<&'a mut State<DB>>> + 'a,
+    I: Inspector<<F::EvmFactory as EvmFactory<DB>>::Context> + 'a,
 {
 }
 
-impl<'a, F, DB, I, T> BlockExecutorFor<'a, F, DB, I> for T
+impl<'a, F, DB: 'static, I, T> BlockExecutorFor<'a, F, DB, I> for T
 where
-    F: BlockExecutorFactory,
+    F: BlockExecutorFactory<DB>,
     DB: Database + 'a,
-    I: Inspector<<F::EvmFactory as EvmFactory>::Context<&'a mut State<DB>>> + 'a,
+    I: Inspector<<F::EvmFactory as EvmFactory<DB>>::Context> + 'a,
     T: BlockExecutor<
-        Evm = <F::EvmFactory as EvmFactory>::Evm<&'a mut State<DB>, I>,
+        Evm = <F::EvmFactory as EvmFactory<DB>>::Evm<I>,
         Transaction = F::Transaction,
         Receipt = F::Receipt,
     >,
@@ -323,9 +323,9 @@ where
 /// [`ExecutionCtx`]: BlockExecutorFactory::ExecutionCtx
 /// [`EvmFactory`]: crate::EvmFactory
 #[auto_impl::auto_impl(Arc)]
-pub trait BlockExecutorFactory: 'static {
+pub trait BlockExecutorFactory<DB: Database + 'static>: 'static {
     /// The EVM factory used by the executor.
-    type EvmFactory: EvmFactory;
+    type EvmFactory: EvmFactory<DB>;
 
     /// Context required for block execution beyond what the EVM provides (e.g.
     /// [`EvmEnv`](crate::EvmEnv))
@@ -412,12 +412,12 @@ pub trait BlockExecutorFactory: 'static {
     /// // 3. Apply post-execution changes (e.g., process withdrawals, apply rewards)
     /// let result = executor.execute_block(transactions)?;
     /// ```
-    fn create_executor<'a, DB, I>(
+    fn create_executor<'a, I>(
         &'a self,
-        evm: <Self::EvmFactory as EvmFactory>::Evm<&'a mut State<DB>, I>,
+        evm: <Self::EvmFactory as EvmFactory<DB>>::Evm<I>,
         ctx: Self::ExecutionCtx<'a>,
     ) -> impl BlockExecutorFor<'a, Self, DB, I>
     where
         DB: Database + 'a,
-        I: Inspector<<Self::EvmFactory as EvmFactory>::Context<&'a mut State<DB>>> + 'a;
+        I: Inspector<<Self::EvmFactory as EvmFactory<DB>>::Context> + 'a;
 }
